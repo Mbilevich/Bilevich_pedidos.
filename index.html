@@ -360,6 +360,33 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);min-he
   </div>
 </div>
 
+
+<!-- Modal confirmación pedido -->
+<div id="confirm-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9990;display:none;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:16px;width:100%;max-width:500px;overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,.3)">
+    <div style="background:#1B2A4A;padding:16px 20px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:14px;font-weight:800;color:#fff;letter-spacing:.5px">RESUMEN DEL PEDIDO</span>
+      <span style="font-size:11px;color:#C9A84C;font-family:'DM Mono',monospace" id="modal-fecha"></span>
+    </div>
+    <div style="padding:16px 20px;max-height:50vh;overflow-y:auto" id="modal-items"></div>
+    <div style="padding:12px 20px;background:#F7F6F3;border-top:1px solid #E2DDD5">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:#888;margin-bottom:3px">
+        <span>Subtotal</span><span id="modal-sub" style="font-family:'DM Mono',monospace"></span>
+      </div>
+      <div id="modal-iva-row" style="display:none;justify-content:space-between;font-size:12px;color:#C9A84C;margin-bottom:3px">
+        <span>IVA 21%</span><span id="modal-iva" style="font-family:'DM Mono',monospace"></span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:800;color:#1B2A4A;margin-top:6px;padding-top:6px;border-top:2px solid #1B2A4A">
+        <span id="modal-total-label">TOTAL</span><span id="modal-total" style="font-family:'DM Mono',monospace;color:#C9A84C"></span>
+      </div>
+      <div id="modal-nota-row" style="display:none;margin-top:8px;font-size:11px;color:#888;font-style:italic"></div>
+    </div>
+    <div style="padding:14px 20px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid #E2DDD5">
+      <button onclick="cerrarModal()" style="padding:9px 20px;border-radius:7px;border:1.5px solid #E2DDD5;background:transparent;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;color:#888">Modificar</button>
+      <button onclick="enviarPedidoConfirmado()" id="modal-confirm-btn" style="padding:9px 24px;border-radius:7px;border:none;background:#1B2A4A;color:#fff;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer">✓ Sí, confirmar</button>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -557,7 +584,10 @@ function clearPedido() {
 }
 
 // ── CONFIRMAR PEDIDO ─────────────────────────────────────────────────────────
-async function confirmarPedido() {
+// Datos del pedido actual (se llenan al abrir el modal)
+let pedidoPendiente = null;
+
+function confirmarPedido() {
   const items=[];
   const disc=(state.user?.descuento||0)/100;
   let sub=0;
@@ -575,18 +605,72 @@ async function confirmarPedido() {
   const total=sub+iva;
   const nota=document.getElementById('pedido-nota').value.trim();
 
-  const btn=document.getElementById('confirm-btn');
+  // Guardar pedido pendiente
+  pedidoPendiente = {items,subtotal:sub,iva,total,nota,cat};
+
+  // Llenar modal
+  const fecha=new Date().toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'});
+  document.getElementById('modal-fecha').textContent=fecha;
+
+  // Agrupar por línea
+  const grupos={};
+  items.forEach(it=>{ if(!grupos[it.linea]) grupos[it.linea]=[]; grupos[it.linea].push(it); });
+  let html='';
+  Object.entries(grupos).forEach(([linea,its])=>{
+    html+=`<div style="font-size:10px;font-weight:700;color:#888;letter-spacing:1px;text-transform:uppercase;margin:10px 0 6px">${linea}</div>`;
+    its.forEach(it=>{
+      html+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #F0EDE8;font-size:12px">
+        <span style="color:#1A1A1A;flex:1;padding-right:10px">${it.desc}</span>
+        <span style="color:#888;white-space:nowrap">x${it.cantidad}</span>
+        <span style="font-family:'DM Mono',monospace;color:#1A7A34;margin-left:12px;white-space:nowrap">${fmt(it.total)}</span>
+      </div>`;
+    });
+  });
+  document.getElementById('modal-items').innerHTML=html;
+  document.getElementById('modal-sub').textContent=fmt(sub);
+  document.getElementById('modal-iva').textContent=fmt(iva);
+  document.getElementById('modal-total').textContent=fmt(total);
+  document.getElementById('modal-iva-row').style.display=cat==='A'?'flex':'none';
+  document.getElementById('modal-total-label').textContent=cat==='A'?'TOTAL + IVA':'TOTAL';
+  if(nota) {
+    document.getElementById('modal-nota-row').style.display='block';
+    document.getElementById('modal-nota-row').textContent='Nota: '+nota;
+  } else {
+    document.getElementById('modal-nota-row').style.display='none';
+  }
+
+  // Mostrar modal
+  const modal=document.getElementById('confirm-modal');
+  modal.style.display='flex';
+}
+
+function cerrarModal() {
+  document.getElementById('confirm-modal').style.display='none';
+  pedidoPendiente=null;
+}
+
+async function enviarPedidoConfirmado() {
+  if(!pedidoPendiente) return;
+  const btn=document.getElementById('modal-confirm-btn');
   btn.disabled=true; btn.innerHTML='<span class="spinner"></span>Enviando...';
 
   const {error} = await sb.from('pedidos').insert({
-    cliente_nombre:state.user.nombre, items, subtotal:sub, iva, total,
-    estado:'pendiente', nota
+    cliente_nombre:state.user.nombre,
+    items:pedidoPendiente.items,
+    subtotal:pedidoPendiente.subtotal,
+    iva:pedidoPendiente.iva,
+    total:pedidoPendiente.total,
+    estado:'pendiente',
+    nota:pedidoPendiente.nota
   });
 
-  btn.disabled=false; btn.textContent='✓ Confirmar pedido';
+  btn.disabled=false; btn.textContent='✓ Sí, confirmar';
 
   if(error) { showToast('Error al enviar. Intentá de nuevo.'); return; }
-  showToast('¡Pedido enviado! 🎉');
+
+  document.getElementById('confirm-modal').style.display='none';
+  pedidoPendiente=null;
+  showToast('¡Pedido confirmado y enviado! 🎉');
   clearPedido();
 }
 
