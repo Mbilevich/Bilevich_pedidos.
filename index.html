@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bilevich — Sistema de Pedidos</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --navy:#1B2A4A; --gold:#C9A84C; --gold-l:#FEF6E4; --white:#fff;
+  --bg:#F7F6F3; --surface:#fff; --border:#E2DDD5; --text:#1A1A1A;
+  --muted:#888; --green:#1A7A34; --green-bg:#EAF7ED;
+  --dom:#0F5132; --dom-bg:#D1FAE5; --mer:#4C1D95; --mer-bg:#EDE9FE;
+  --man:#7C2D12; --man-bg:#FEE2E2; --r:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* ── LOGIN ── */
+#login-screen{position:fixed;inset:0;background:var(--navy);display:flex;align-items:center;justify-content:center;z-index:9999;flex-direction:column}
+#login-screen.hidden{display:none}
+.login-box{background:#fff;border-radius:16px;padding:44px 40px;width:100%;max-width:380px;text-align:center;box-shadow:0 24px 64px rgba(0,0,0,.35)}
+.login-logo{font-size:28px;font-weight:800;color:var(--navy);margin-bottom:4px}
+.login-logo span{color:var(--gold)}
+.login-sub{font-size:12px;color:var(--muted);margin-bottom:28px}
+.login-field{margin-bottom:14px;text-align:left}
+.login-label{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:6px}
+.login-input{width:100%;padding:12px 16px;border:2px solid var(--border);border-radius:8px;font-family:'DM Mono',monospace;font-size:14px;outline:none;transition:border-color .15s;color:var(--navy)}
+.login-input:focus{border-color:var(--gold)}
+.login-input.error{border-color:#EF4444;animation:shake .3s}
+.login-btn{width:100%;margin-top:8px;padding:13px;background:var(--navy);color:#fff;border:none;border-radius:8px;font-family:'Syne',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:background .15s}
+.login-btn:hover{background:#243660}
+.login-btn:disabled{opacity:.5;cursor:not-allowed}
+.login-error{margin-top:10px;font-size:12px;color:#EF4444;min-height:16px}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+
+/* ── HEADER ── */
+.header{background:var(--navy);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.25)}
+.header-logo{font-size:17px;font-weight:800;color:#fff;letter-spacing:.5px}
+.header-logo span{color:var(--gold)}
+.header-right{display:flex;align-items:center;gap:12px}
+.header-user{font-size:12px;color:rgba(255,255,255,.6);font-family:'DM Mono',monospace}
+.header-user strong{color:var(--gold)}
+.tabs{display:flex;gap:4px}
+.tab-btn{background:transparent;border:none;color:rgba(255,255,255,.55);font-family:'Syne',sans-serif;font-size:12px;font-weight:600;padding:5px 14px;border-radius:6px;cursor:pointer;transition:all .18s}
+.tab-btn:hover{color:#fff;background:rgba(255,255,255,.08)}
+.tab-btn.active{background:var(--gold);color:var(--navy)}
+.logout-btn{background:rgba(255,255,255,.1);border:none;color:rgba(255,255,255,.6);font-family:'Syne',sans-serif;font-size:11px;padding:5px 10px;border-radius:6px;cursor:pointer;transition:all .15s}
+.logout-btn:hover{background:rgba(255,255,255,.2);color:#fff}
+
+/* ── VIEWS ── */
+.view{display:none;padding:24px;max-width:1300px;margin:0 auto}
+.view.active{display:block}
+.section-title{font-size:20px;font-weight:800;color:var(--navy);margin-bottom:18px;display:flex;align-items:center;gap:10px}
+.section-title::after{content:'';flex:1;height:2px;background:linear-gradient(90deg,var(--gold) 0%,transparent 100%)}
+
+/* ── PEDIDO ── */
+.pedido-grid{display:grid;grid-template-columns:300px 1fr;gap:18px;align-items:start}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;position:sticky;top:72px}
+.panel-header{background:var(--navy);padding:12px 16px;font-size:10px;font-weight:700;color:var(--gold);letter-spacing:1.5px;text-transform:uppercase}
+.panel-body{padding:14px}
+.client-info-box{padding:14px;background:var(--navy);border-radius:8px}
+.ci-name{font-size:15px;font-weight:700;color:#fff;margin-bottom:6px}
+.ci-row{display:flex;justify-content:space-between;font-size:12px;color:rgba(255,255,255,.65);margin-bottom:3px}
+.ci-row strong{color:var(--gold)}
+.iva-badge{margin-top:10px;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;text-align:center}
+.con-iva{background:rgba(201,168,76,.2);color:var(--gold);border:1px solid rgba(201,168,76,.4)}
+.sin-iva{background:rgba(26,122,52,.15);color:#6EE7A0;border:1px solid rgba(26,122,52,.3)}
+
+/* ── PRODUCTOS ── */
+.products-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.products-toolbar{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.filter-btn{padding:5px 12px;border-radius:20px;border:1.5px solid var(--border);background:transparent;font-family:'Syne',sans-serif;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;color:var(--muted)}
+.filter-btn:hover{border-color:var(--navy);color:var(--navy)}
+.filter-btn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+.filter-btn.dom.active{background:var(--dom);border-color:var(--dom)}
+.filter-btn.mer.active{background:var(--mer);border-color:var(--mer)}
+.filter-btn.man.active{background:var(--man);border-color:var(--man)}
+.filter-sep{width:1px;height:22px;background:var(--border);margin:0 2px}
+.only-btn{margin-left:auto;padding:5px 12px;border-radius:20px;border:1.5px solid var(--border);background:transparent;font-family:'Syne',sans-serif;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;color:var(--muted);display:flex;align-items:center;gap:4px}
+.only-btn.active{background:var(--gold);color:var(--navy);border-color:var(--gold)}
+
+.table-wrap{max-height:calc(100vh - 260px);overflow-y:auto}
+.table-wrap::-webkit-scrollbar{width:4px}
+.table-wrap::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+.pt{width:100%;border-collapse:collapse}
+.pt th{padding:9px 12px;font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);text-align:left;border-bottom:2px solid var(--border);background:var(--bg)}
+.pt th.r{text-align:right} .pt th.c{text-align:center}
+.pt td{padding:8px 12px;font-size:12px;border-bottom:1px solid var(--border);vertical-align:middle}
+.pt tr:last-child td{border-bottom:none}
+.pt tr.hidden{display:none}
+.pt tr:hover td{background:#FAFAF8}
+.linea-tag{display:inline-block;font-size:8px;font-weight:700;letter-spacing:.8px;padding:2px 6px;border-radius:4px;text-transform:uppercase;font-family:'DM Mono',monospace}
+.tag-DOM{background:var(--dom-bg);color:var(--dom)}
+.tag-MER{background:var(--mer-bg);color:var(--mer)}
+.tag-MAN{background:var(--man-bg);color:var(--man)}
+.pl{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);text-align:right;text-decoration:line-through}
+.pl.nd{text-decoration:none;color:var(--navy)}
+.pc{font-family:'DM Mono',monospace;font-size:12px;font-weight:500;color:var(--green);text-align:right}
+.qty-i{width:65px;padding:5px 7px;border:1.5px solid var(--border);border-radius:6px;font-family:'DM Mono',monospace;font-size:12px;text-align:center;outline:none;transition:border-color .15s;background:var(--gold-l, #FEF6E4)}
+.qty-i:focus{border-color:var(--gold)}
+.qty-i.hv{border-color:var(--gold);font-weight:700}
+.lt{font-family:'DM Mono',monospace;font-size:12px;font-weight:500;color:var(--green);text-align:right}
+
+/* ── TOTAL BAR ── */
+.total-bar{background:var(--navy);border-top:2px solid var(--gold)}
+.total-breakdown{padding:12px 18px 0;display:flex;flex-direction:column;gap:3px}
+.tl{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:rgba(255,255,255,.55)}
+.tl.sub{color:rgba(255,255,255,.75)}
+.tl.iva{color:#FCD34D}
+.tl.grand{font-size:14px;font-weight:700;color:#fff;border-top:1px solid rgba(255,255,255,.15);padding-top:7px;margin-top:4px}
+.tl .val{font-family:'DM Mono',monospace;font-weight:500}
+.tl.grand .val{font-size:20px;color:var(--gold)}
+.total-actions{padding:10px 18px 13px;display:flex;gap:8px;justify-content:flex-end}
+.btn{padding:7px 16px;border-radius:7px;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;cursor:pointer;border:none;transition:all .15s}
+.btn-ghost{background:rgba(255,255,255,.1);color:#fff}
+.btn-ghost:hover{background:rgba(255,255,255,.2)}
+.btn-gold{background:var(--gold);color:var(--navy)}
+.btn-gold:hover{background:#e0b84e}
+.btn-wa{background:#25D366;color:#fff}
+.btn-wa:hover{background:#1ebe5d}
+
+/* ── NOTA PEDIDO ── */
+.nota-wrap{padding:10px 18px;border-top:1px solid rgba(255,255,255,.1)}
+.nota-input{width:100%;padding:8px 12px;border:1.5px solid rgba(255,255,255,.2);border-radius:6px;background:rgba(255,255,255,.05);color:#fff;font-family:'Syne',sans-serif;font-size:12px;outline:none;resize:none}
+.nota-input::placeholder{color:rgba(255,255,255,.3)}
+.nota-input:focus{border-color:var(--gold)}
+
+/* ── ADMIN PANEL ── */
+.admin-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.card-header{background:var(--navy);padding:12px 16px;font-size:10px;font-weight:700;color:var(--gold);letter-spacing:1.5px;text-transform:uppercase;display:flex;align-items:center;justify-content:space-between}
+.card-body{padding:0}
+.at{width:100%;border-collapse:collapse}
+.at th{padding:9px 14px;font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);text-align:left;border-bottom:2px solid var(--border);background:var(--bg)}
+.at td{padding:9px 14px;font-size:12px;border-bottom:1px solid var(--border);vertical-align:middle}
+.at tr:last-child td{border-bottom:none}
+.at tr:hover td{background:#fafaf8}
+.at-input{width:85px;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-family:'DM Mono',monospace;font-size:12px;text-align:center;outline:none;background:var(--gold-l,#FEF6E4);transition:border-color .15s}
+.at-input:focus{border-color:var(--gold)}
+.at-input.saved{border-color:var(--green);background:var(--green-bg)}
+.pwd-input{width:120px;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-family:'DM Mono',monospace;font-size:12px;outline:none;transition:border-color .15s}
+.pwd-input:focus{border-color:var(--gold)}
+.save-btn{padding:4px 10px;border-radius:5px;border:none;background:var(--navy);color:#fff;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;cursor:pointer;transition:background .15s;white-space:nowrap}
+.save-btn:hover{background:#243660}
+.cat-badge{display:inline-block;font-size:9px;font-weight:700;padding:2px 6px;border-radius:20px;font-family:'DM Mono',monospace}
+.cat-A{background:var(--green-bg);color:var(--green)}
+.cat-B{background:#FEF3C7;color:#92400E}
+
+/* Pedidos admin */
+.pedido-card{padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s}
+.pedido-card:hover{background:#fafaf8}
+.pedido-card:last-child{border-bottom:none}
+.pc-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.pc-nombre{font-size:13px;font-weight:700;color:var(--navy)}
+.pc-total{font-family:'DM Mono',monospace;font-size:13px;font-weight:500;color:var(--green)}
+.pc-meta{font-size:11px;color:var(--muted)}
+.estado-badge{display:inline-block;font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;font-family:'DM Mono',monospace;text-transform:uppercase}
+.est-pendiente{background:#FEF3C7;color:#92400E}
+.est-confirmado{background:var(--green-bg);color:var(--green)}
+.est-cancelado{background:#FEE2E2;color:#991B1B}
+
+/* Nuevo cliente form */
+.new-client-form{padding:16px;border-top:1px solid var(--border);display:grid;grid-template-columns:1fr 1fr auto auto auto;gap:8px;align-items:end}
+.form-field{display:flex;flex-direction:column;gap:4px}
+.form-label{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.8px;text-transform:uppercase}
+.form-input{padding:7px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:'DM Mono',monospace;font-size:12px;outline:none;transition:border-color .15s}
+.form-input:focus{border-color:var(--gold)}
+.form-select{padding:7px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:'Syne',sans-serif;font-size:12px;outline:none;background:white}
+
+/* PDF print */
+@media print{
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  #login-screen,.header,.products-toolbar,.only-btn,.total-actions,.panel,#view-admin,.section-title,.nota-wrap,.toast{display:none!important}
+  .view{padding:0 16px!important;max-width:100%!important}
+  .pedido-grid{grid-template-columns:1fr!important}
+  .products-panel{border:none!important;border-radius:0!important}
+  .table-wrap{max-height:none!important;overflow:visible!important}
+  .pt tr.hidden{display:none!important}
+  .pt th{background:var(--navy)!important;color:#fff!important;font-size:9px!important;padding:6px 10px!important}
+  .pt td{font-size:10px!important;padding:5px 10px!important}
+  .total-bar{page-break-inside:avoid;border-radius:0!important}
+  #pdf-header{display:block!important}
+  .filter-btn{display:none!important}
+}
+#pdf-header{display:none;padding:16px 0 12px;border-bottom:3px solid var(--navy);margin-bottom:12px}
+#pdf-header-top{display:flex;justify-content:space-between;align-items:center}
+#pdf-logo{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--navy)}
+#pdf-logo span{color:var(--gold)}
+#pdf-client-name{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--navy)}
+#pdf-date{font-family:'DM Mono',monospace;font-size:10px;color:#aaa;margin-top:5px}
+
+/* Toast */
+.toast{position:fixed;bottom:20px;right:20px;background:var(--navy);color:#fff;padding:10px 18px;border-radius:8px;font-size:12px;font-weight:600;border-left:3px solid var(--gold);opacity:0;transform:translateY(10px);transition:all .25s;pointer-events:none;z-index:9998}
+.toast.show{opacity:1;transform:translateY(0)}
+
+/* Spinner */
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+@media(max-width:900px){
+  .pedido-grid{grid-template-columns:1fr}
+  .panel{position:static}
+  .admin-grid{grid-template-columns:1fr}
+  .new-client-form{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">BILEVICH <span>·</span></div>
+    <div class="login-sub">Ingresá con tu usuario y contraseña</div>
+    <div class="login-field">
+      <label class="login-label" for="login-user">Usuario</label>
+      <input type="text" class="login-input" id="login-user" placeholder="Tu nombre" autocomplete="username"
+        onkeydown="if(event.key==='Enter')document.getElementById('login-pwd').focus()">
+    </div>
+    <div class="login-field">
+      <label class="login-label" for="login-pwd">Contraseña</label>
+      <input type="password" class="login-input" id="login-pwd" placeholder="••••••••" autocomplete="current-password"
+        onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="login-btn" id="login-btn" onclick="doLogin()">Ingresar</button>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<!-- HEADER -->
+<header class="header" id="main-header" style="display:none">
+  <div class="header-logo">BILEVICH <span>·</span></div>
+  <div class="header-right">
+    <div class="tabs" id="main-tabs">
+      <button class="tab-btn active" onclick="showView('pedido',this)">📋 Pedido</button>
+      <button class="tab-btn admin-only" onclick="showView('admin',this)" style="display:none">⚙️ Admin</button>
+    </div>
+    <span class="header-user">Hola, <strong id="header-username">—</strong></span>
+    <button class="logout-btn" onclick="doLogout()">Salir</button>
+  </div>
+</header>
+
+<!-- PDF HEADER (solo al imprimir) -->
+<div id="pdf-header">
+  <div id="pdf-header-top">
+    <div id="pdf-logo">BILEVICH <span>·</span></div>
+    <div id="pdf-client-name">—</div>
+  </div>
+  <div id="pdf-date">—</div>
+</div>
+
+<!-- PEDIDO -->
+<div id="view-pedido" class="view" style="display:none">
+  <div class="section-title">Nuevo Pedido</div>
+  <div class="pedido-grid">
+    <div>
+      <div class="panel">
+        <div class="panel-header">Tu cuenta</div>
+        <div class="panel-body">
+          <div class="client-info-box">
+            <div class="ci-name" id="ci-name">—</div>
+            <div class="ci-row"><span>Categoría</span><strong id="ci-cat">—</strong></div>
+            <div class="iva-badge" id="ci-iva"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="products-panel">
+        <div class="products-toolbar">
+          <button class="filter-btn active" onclick="setLinea('TODAS',this)">Todas</button>
+          <button class="filter-btn dom" onclick="setLinea('Doméstico',this)">Doméstico</button>
+          <button class="filter-btn mer" onclick="setLinea('Mercerías',this)">Mercerías</button>
+          <button class="filter-btn man" onclick="setLinea('Manualidades',this)">Manualidades</button>
+          <div class="filter-sep"></div>
+          <button class="only-btn" id="only-btn" onclick="toggleOnly()">👁 Solo pedido</button>
+        </div>
+        <div class="table-wrap">
+          <table class="pt">
+            <thead>
+              <tr>
+                <th>Línea</th><th>Descripción</th>
+                <th class="r">Precio lista</th><th class="r">Tu precio</th>
+                <th class="c">Cant.</th><th class="r">Total</th>
+              </tr>
+            </thead>
+            <tbody id="prods-body"></tbody>
+          </table>
+        </div>
+        <div class="nota-wrap">
+          <textarea class="nota-input" id="pedido-nota" rows="2" placeholder="Nota opcional para el pedido..."></textarea>
+        </div>
+        <div class="total-bar">
+          <div class="total-breakdown">
+            <div class="tl sub"><span>Subtotal</span><span class="val" id="t-sub">$ 0</span></div>
+            <div class="tl iva" id="t-iva-row" style="display:none"><span>IVA 21%</span><span class="val" id="t-iva">$ 0</span></div>
+            <div class="tl grand"><span id="t-label">TOTAL</span><span class="val" id="t-total">$ 0</span></div>
+          </div>
+          <div class="total-actions">
+            <button class="btn btn-ghost" onclick="clearPedido()">Limpiar</button>
+            <button class="btn btn-gold" onclick="exportPDF()">📄 PDF</button>
+            <button class="btn btn-wa" onclick="enviarWA()">📲 WhatsApp</button>
+            <button class="btn btn-gold" onclick="confirmarPedido()" id="confirm-btn">✓ Confirmar pedido</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN -->
+<div id="view-admin" class="view" style="display:none">
+  <div class="section-title">Panel Admin</div>
+  <div class="admin-grid">
+    <!-- Clientes -->
+    <div class="card">
+      <div class="card-header">
+        <span>Clientes</span>
+        <button class="btn btn-gold" style="padding:4px 12px;font-size:11px" onclick="toggleNewClientForm()">+ Nuevo</button>
+      </div>
+      <div class="card-body">
+        <div id="new-client-form" style="display:none" class="new-client-form">
+          <div class="form-field">
+            <label class="form-label">Nombre (usuario)</label>
+            <input type="text" class="form-input" id="nc-nombre" placeholder="Ej: Sarquis">
+          </div>
+          <div class="form-field">
+            <label class="form-label">Contraseña</label>
+            <input type="text" class="form-input" id="nc-pwd" placeholder="Contraseña">
+          </div>
+          <div class="form-field">
+            <label class="form-label">Desc. %</label>
+            <input type="number" class="form-input" id="nc-desc" placeholder="0" min="0" max="100" style="width:70px">
+          </div>
+          <div class="form-field">
+            <label class="form-label">Cat.</label>
+            <select class="form-select" id="nc-cat" style="width:70px">
+              <option value="A">A</option>
+              <option value="B" selected>B</option>
+            </select>
+          </div>
+          <button class="save-btn" style="padding:7px 14px;font-size:12px;align-self:end" onclick="crearCliente()">Crear</button>
+        </div>
+        <table class="at">
+          <thead><tr><th>Cliente</th><th>Cat.</th><th>Desc. %</th><th>Contraseña</th><th></th></tr></thead>
+          <tbody id="admin-clientes-body"></tbody>
+        </table>
+      </div>
+    </div>
+    <!-- Pedidos -->
+    <div class="card">
+      <div class="card-header">
+        <span>Pedidos recibidos</span>
+        <span id="pedidos-count" style="font-size:11px;color:rgba(255,255,255,.5)"></span>
+      </div>
+      <div class="card-body" id="admin-pedidos-body" style="max-height:500px;overflow-y:auto"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = "https://mqhmkeilhkvxbhbjpma.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xaG1rZWlsaGtrdnhiaGJqcG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwMDk2MzQsImV4cCI6MjA4OTU4NTYzNH0.9UyQPLLXa5NQCtIwDl3CSTfHdJ78cKO_ps0vxO9lLFs";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const PRODUCTOS = [{"cod": "1001", "desc": "Hilo Multiuso Poliester x 100 yds Caja x 10 bobinas", "precio": 6079.74, "linea": "Doméstico", "subcat": ""}, {"cod": "1002", "desc": "Hilo Multiuso Poliester x 20 bobinas Colores Surtidos", "precio": 12779.48, "linea": "Doméstico", "subcat": ""}, {"cod": "450", "desc": "Hilo Multiuso x 450 mts Caja x 20 bobinas", "precio": 23607.48, "linea": "Doméstico", "subcat": ""}, {"cod": "20010", "desc": "Exhibidor Hilo Multiuso x 100 colores media carga (500 bobinas)", "precio": 395183.1, "linea": "Doméstico", "subcat": ""}, {"cod": "20010", "desc": "Exhibidor Hilo Multiuso x 100 colores carga completa", "precio": 607988.14, "linea": "Doméstico", "subcat": ""}, {"cod": "20052", "desc": "Exhibidor Hilo Multiuso x 200 colores 1/2 carga (1000 bobinas)", "precio": 607988.14, "linea": "Doméstico", "subcat": ""}, {"cod": "20054", "desc": "Exhibidor Hilo Multiuso x 200 colores carga completa", "precio": 1215976.41, "linea": "Doméstico", "subcat": ""}, {"cod": "9011", "desc": "Sedalina Algodón x 90 mts.Blanco Caja x 10 bobinas", "precio": 7785.12, "linea": "Doméstico", "subcat": ""}, {"cod": "901", "desc": "Sedalina Algodón x 90 mts.Color   Caja x 10 bobinas", "precio": 8288.02, "linea": "Doméstico", "subcat": ""}, {"cod": "920", "desc": "Sedalina Algodón x 90 mts x 20 bob. Colores surtidos", "precio": 17106.71, "linea": "Doméstico", "subcat": ""}, {"cod": "9100", "desc": "Exhibidor Sedalina x 100 colores media carga (500 bobinas)", "precio": 523006.25, "linea": "Doméstico", "subcat": ""}, {"cod": "9100", "desc": "Exhibidor Sedalina x 100 colores carga completa", "precio": 828809.08, "linea": "Doméstico", "subcat": ""}, {"cod": "9052", "desc": "Exhibidor Sedalina x 200 colores 1/2 carga (1000 bobinas)", "precio": 828809.08, "linea": "Doméstico", "subcat": ""}, {"cod": "9200", "desc": "Exhibidor Sedalina x 200 colores carga completa", "precio": 1657617.94, "linea": "Doméstico", "subcat": ""}, {"cod": "450", "desc": "Algodón Mercerizado x 450 mts.Color Caja x 20 bobinas", "precio": 49124.45, "linea": "Doméstico", "subcat": ""}, {"cod": "24030", "desc": "Bitax Pespunte x 30 mts  Caja x 10 bobinas", "precio": 4908.54, "linea": "Doméstico", "subcat": ""}, {"cod": "1295", "desc": "Cordon Fino Fantasia Ruby x10 yardas", "precio": 38610.19, "linea": "Mercerías", "subcat": "Cordones", "unidad": "X rollo  /  5"}, {"cod": "1296", "desc": "Cordon Fino Fantasia Silver x10 yardas", "precio": 38013.88, "linea": "Mercerías", "subcat": "Cordones", "unidad": "X rollo  /  5"}, {"cod": "1297", "desc": "Cordon Fino Fantasia Black x10 yardas", "precio": 37902.07, "linea": "Mercerías", "subcat": "Cordones", "unidad": "X rollo  /  5"}, {"cod": "1298", "desc": "Cordon Fino Fantasia Black x10 yardas", "precio": 37920.72, "linea": "Mercerías", "subcat": "Cordones", "unidad": "X rollo  /  5"}, {"cod": "1299", "desc": "Cordon Fantasia Ruby x10 yardas", "precio": 43604.14, "linea": "Mercerías", "subcat": "Cordones", "unidad": "X rollo  /  5"}, {"cod": "1300", "desc": "Cordon Fantasia Silver x10 yardas", "precio": 43324.64, "linea": "Mercerías", "subcat": "Cordones", "unidad": "X rollo  /  5"}, {"cod": "1301", "desc": "Medio Cordon Fantasia Silver x10 yardas", "precio": 46958.33, "linea": "Mercerías", "subcat": "Cordones", "unidad": "X rollo  /  5"}, {"cod": "1302", "desc": "Cordon Fantasia Grueso Silver x10 yardas", "precio": 51244.2, "linea": "Mercerías", "subcat": "Cordones", "unidad": "X rollo  /  5"}, {"cod": "1303", "desc": "Medio Cordon Grueso Fantasia Ruby x10 yardas", "precio": 56787.89, "linea": "Mercerías", "subcat": "Cordones", "unidad": "X rollo  /  5"}, {"cod": "1304", "desc": "Medio Cordon Grueso Fantasia Silver x10 yardas", "precio": 54505.2, "linea": "Mercerías", "subcat": "Cordones", "unidad": "X rollo  /  5"}, {"cod": "1145", "desc": "Tiras de yute Grande con bordado tipo encaje x10 Yardas", "precio": 9212.76, "linea": "Mercerías", "subcat": "Yute", "unidad": "X rollo  /  5"}, {"cod": "1146", "desc": "Tiras de yute con bordado exterior x10 Yardas", "precio": 9212.76, "linea": "Mercerías", "subcat": "Yute", "unidad": "X rollo  /  5"}, {"cod": "1147", "desc": "Tiras de yute Blanco con bordado tipo encaje x10 Yardas", "precio": 7139.92, "linea": "Mercerías", "subcat": "Yute", "unidad": "X rollo  /  5"}, {"cod": "1174", "desc": "Hilo de yute ovillado 2 cabos x 10 metros caja x24 unidades", "precio": 20047.44, "linea": "Mercerías", "subcat": "Yute", "unidad": "X rollo  /  5"}, {"cod": "1175", "desc": "Tiras de yute x15 metros", "precio": 6385.55, "linea": "Mercerías", "subcat": "Yute", "unidad": "X rollo  /  5"}, {"cod": "1176", "desc": "Tiras de yute bordadas con encaje x15 metros", "precio": 6987.96, "linea": "Mercerías", "subcat": "Yute", "unidad": "X rollo  /  5"}, {"cod": "1177", "desc": "Tiras de yute Bordado exterior x15 metros", "precio": 3893.43, "linea": "Mercerías", "subcat": "Yute", "unidad": "X rollo  /  5"}, {"cod": "1180", "desc": "Hilo de yute ovillado 3 cabos x10 metros", "precio": 2321.28, "linea": "Mercerías", "subcat": "Yute", "unidad": "X rollo  /  5"}, {"cod": "1307", "desc": "Tiras de yute XL con bordado tipo encaje x10 Yardas", "precio": 13451.83, "linea": "Mercerías", "subcat": "Yute", "unidad": "X rollo  /  5"}, {"cod": "1769", "desc": "Yute con plata 2mm. Rollo x 100 mts", "precio": 4899.45, "linea": "Mercerías", "subcat": "Yute", "unidad": "X rollo  /  5"}, {"cod": "1770", "desc": "Yute con oro 2mm. Rollo x 100 mts", "precio": 4899.45, "linea": "Mercerías", "subcat": "Yute", "unidad": "X rollo  /  5"}, {"cod": "1771", "desc": "Yute 2mm. Rollo 40 mts.", "precio": 1592.32, "linea": "Mercerías", "subcat": "Yute", "unidad": "X rollo  /  5"}, {"cod": "1053", "desc": "Hebilla para ajustar pantalon tipo flor pack X2", "precio": 6647.45, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Pack  /  24"}, {"cod": "1054", "desc": "Hebilla para ajustar pantalon tipo osito pack X2", "precio": 6647.45, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Pack  /  24"}, {"cod": "1058", "desc": "Hebilla para ajsutar pantalon tipo deco pack X1", "precio": 5295.15, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Pack  /  24"}, {"cod": "1076", "desc": "Dedal para guia de tejido x5 piezas", "precio": 4402.34, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa  /  20"}, {"cod": "1079", "desc": "Enhebrador de agujas automatico", "precio": 5534.38, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa  /  20"}, {"cod": "1088", "desc": "Tapa agujas para tejer x10 piezas", "precio": 3493.93, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa  /  20"}, {"cod": "1089", "desc": "Dedal para costura x5 piezas extra comodo", "precio": 8105.9, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa  /  20"}, {"cod": "1277", "desc": "Anillo Corta hilo e hilacha para dedo x10 piezas", "precio": 5900.52, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa  /  20"}, {"cod": "1280", "desc": "Carretel de hierro para costura x10 piezas", "precio": 1441.37, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa  /  20"}, {"cod": "1281", "desc": "Enhebrador de agujas con lupa x5 piezas", "precio": 3577.77, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa  /  20"}, {"cod": "1282", "desc": "Cuenta vueltas de tejido x10 piezas", "precio": 6443.72, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa  /  20"}, {"cod": "1283", "desc": "Abre hojal M x7 piezas", "precio": 2088.13, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa  /  20"}, {"cod": "1285", "desc": "Enhebrador de agujas x15 piezas", "precio": 2265.92, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa  /  20"}, {"cod": "1291", "desc": "Broches prensa tela y costura chicos", "precio": 1347.06, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa  /  20"}, {"cod": "1288", "desc": "Broche prensa telas y costura tamaño medio x6 piezas", "precio": 1271.79, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa  /  20"}, {"cod": "1289", "desc": "Broche prensa telas y costura tamaño grande x4 piezas", "precio": 1695.72, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa  /  20"}, {"cod": "1202", "desc": "Alfiletero tipo tomate mediano", "precio": 693.18, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Unidad  /  40"}, {"cod": "1203", "desc": "Alfiletero tipo tomate grande", "precio": 1006.25, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Unidad  /  40"}, {"cod": "1041", "desc": "Pulsera para costura con iman", "precio": 6152.98, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Unidad  /  5"}, {"cod": "1287", "desc": "Agujas para coser lana x 30", "precio": 1448.96, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa  /  20"}, {"cod": "1275", "desc": "Abre hojal L Clover caja X24", "precio": 1147.33, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Unidad  /  96"}, {"cod": "1016", "desc": "Tijera acero inoxidable de bordado ciscne", "precio": 8929.33, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Unidad  /  10"}, {"cod": "1017", "desc": "Tijera acero inoxidable de bordado francesa", "precio": 10630.16, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Unidad  /  10"}, {"cod": "1012", "desc": "Tijera de sastre 8,5 Dorada", "precio": 8844.3, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Unidad  /  12"}, {"cod": "1259", "desc": "Tijera de sastre 10 Dorada", "precio": 11140.4, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Unidad  /  12"}, {"cod": "1205", "desc": "Corta Hilacha pack x 12 unidades", "precio": 8555.76, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Pack  /  10"}, {"cod": "1381", "desc": "Petalos flores artificiales surtidas x 144 unid", "precio": 1070.27, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Pack / 50"}, {"cod": "1386", "desc": "Abre ojal + Enhebrador 2 en 1", "precio": 3615.13, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Unidad / 20"}, {"cod": "1403", "desc": "Llavero pompon jaspeado Pack x 12", "precio": 2092.97, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Unidad / 24"}, {"cod": "1404", "desc": "Llavero pompon Pack x 12", "precio": 1744.14, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Unidad / 24"}, {"cod": "1405", "desc": "Llavero bebe Pack x 12", "precio": 1070.27, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Unidad / 24"}, {"cod": "1442", "desc": "Botones Plasticos para chicos surtidos", "precio": 1712.43, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa  /  50"}, {"cod": "1465", "desc": "Llaveros papa Noel x 6 unid", "precio": 1189.19, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa  /  50"}, {"cod": "1466", "desc": "Llaveros letras x 6 unid", "precio": 1189.19, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa  /  50"}, {"cod": "1467", "desc": "Llaveros fantasia x 6 unid", "precio": 943.42, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa  /  50"}, {"cod": "1472", "desc": "Guia para costura con iman", "precio": 4185.94, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa  /  20"}, {"cod": "1608", "desc": "Cuenta bijou letras blancaa", "precio": 2220.87, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa  /  20"}, {"cod": "1610", "desc": "Cuenta bijou letras negras", "precio": 2220.87, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa  /  20"}, {"cod": "1612", "desc": "Cuenta bijou letraa multicolor", "precio": 2363.28, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa  /  20"}, {"cod": "1687", "desc": "Charm colgante decorativo Poni", "precio": 11687.34, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa  /  10"}, {"cod": "1688", "desc": "Charm colgante decorativo Perrito", "precio": 11687.34, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa  /  10"}, {"cod": "1690", "desc": "Charm colgante decorativo Caballo", "precio": 11687.34, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa  /  10"}, {"cod": "1700", "desc": "Charm colgante decorativo Dalmata", "precio": 12769.5, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa  /  10"}, {"cod": "1701", "desc": "Charm colgante decorativo Elefante", "precio": 10677.32, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa  /  10"}, {"cod": "1755", "desc": "Aplique termoadhesivo Flor Shanny 4cm", "precio": 2744.55, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Unidad / 20"}, {"cod": "1759", "desc": "Aplique termoadhesivo Flor Blosson 3,5cm", "precio": 1883.78, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Unidad / 20"}, {"cod": "1766", "desc": "Aplique termoadhesivo Flor Wow 4,5cm", "precio": 2595.83, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Unidad / 20"}, {"cod": "1924", "desc": "Alfiler gancho 6cm perlas Pack x 4", "precio": 4101.05, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Pack / 24"}, {"cod": "1927", "desc": "Alfiler gancho 8cm Mariposa Pack x 4", "precio": 3965.85, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Pack / 24"}, {"cod": "1947", "desc": "Agujas crochet silicona 3mm Bolsa x 6", "precio": 4677.47, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa / 20"}, {"cod": "1948", "desc": "Agujas crochet silicona 3,5mm Bolsa x 6", "precio": 4771.02, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa / 20"}, {"cod": "1949", "desc": "Agujas crochet silicona 4mm Bolsa x 6", "precio": 4915.31, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa / 20"}, {"cod": "1950", "desc": "Agujas crochet silicona 4,5mm Bolsa x 6", "precio": 5073.87, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa / 20"}, {"cod": "1951", "desc": "Agujas crochet silicona 5mm Bolsa x 6", "precio": 5417.94, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa / 20"}, {"cod": "1952", "desc": "Agujas crochet silicona 5,5mm Bolsa x 6", "precio": 5797.69, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa / 20"}, {"cod": "1953", "desc": "Agujas crochet silicona 6mm Bolsa x 6", "precio": 6308.25, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa / 20"}, {"cod": "1956", "desc": "Agujas crochet aluminio 3mm Bolsa x 12", "precio": 4895.49, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa / 20"}, {"cod": "1957", "desc": "Agujas crochet aluminio 3,5mm Bolsa x 12", "precio": 5272.07, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa / 20"}, {"cod": "1958", "desc": "Agujas crochet aluminio 4mm Bolsa x 12", "precio": 5723.96, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa / 20"}, {"cod": "1959", "desc": "Agujas crochet aluminio 4,5mm Bolsa x 12", "precio": 5993.51, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa / 20"}, {"cod": "1960", "desc": "Agujas crochet aluminio 5mm Bolsa x 12", "precio": 6421.62, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa / 20"}, {"cod": "1961", "desc": "Agujas crochet aluminio 5,5mm Bolsa x 12", "precio": 7135.13, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa / 20"}, {"cod": "1962", "desc": "Agujas crochet aluminio 6mm Bolsa x 12", "precio": 7277.83, "linea": "Mercerías", "subcat": "Accesorios", "unidad": "Bolsa / 20"}, {"cod": "1263", "desc": "kit de agujas para tejer x10 piezas aluminio surtido tamaño", "precio": 6921.99, "linea": "Mercerías", "subcat": "Kits", "unidad": "Kit  /  12"}, {"cod": "1264", "desc": "kit de agujas para tejer x9 piezas silicona", "precio": 7820.53, "linea": "Mercerías", "subcat": "Kits", "unidad": "Kit  /  10"}, {"cod": "1196", "desc": "Set de articulos para tejido completo", "precio": 18130.61, "linea": "Mercerías", "subcat": "Kits", "unidad": "Set  /  10"}, {"cod": "1024", "desc": "Costurero completo en caja metalica corazon", "precio": 7351.06, "linea": "Mercerías", "subcat": "Kits", "unidad": "Unidad  /  12"}, {"cod": "1052", "desc": "Costurero completo de viaje tipo Cartuchera", "precio": 4325.42, "linea": "Mercerías", "subcat": "Kits", "unidad": "Unidad  /  12"}, {"cod": "1084", "desc": "kit completo colocador broches snap a presion", "precio": 33985.36, "linea": "Mercerías", "subcat": "Kits", "unidad": "Kit  /  2"}, {"cod": "1991", "desc": "Kit gomitas de pelo Flor", "precio": 7932.05, "linea": "Mercerías", "subcat": "Kits", "unidad": "Kit / 10"}, {"cod": "1992", "desc": "Kit gomitas de pelo Kitty", "precio": 8629.87, "linea": "Mercerías", "subcat": "Kits", "unidad": "Kit / 10"}, {"cod": "1067", "desc": "Stickers Letras Decorativos", "precio": 2664.71, "linea": "Mercerías", "subcat": "Stickers", "unidad": "Plancha  / 60"}, {"cod": "1069", "desc": "Sticker para decoracion facial x12 unidades", "precio": 6214.52, "linea": "Mercerías", "subcat": "Stickers", "unidad": "Plancha  / 10"}, {"cod": "1070", "desc": "Stickers para decoracion Grandes", "precio": 1076.13, "linea": "Mercerías", "subcat": "Stickers", "unidad": "Plancha  / 60"}, {"cod": "1071", "desc": "Stickers para decoracion Medianos", "precio": 1024.87, "linea": "Mercerías", "subcat": "Stickers", "unidad": "Plancha  / 60"}, {"cod": "1072", "desc": "Stickers entero colores surtudos", "precio": 1626.9, "linea": "Mercerías", "subcat": "Stickers", "unidad": "Plancha / 60"}, {"cod": "1073", "desc": "Stickers en tiras 2cm colores surtidos", "precio": 2253.32, "linea": "Mercerías", "subcat": "Stickers", "unidad": "Plancha / 60"}, {"cod": "1103", "desc": "Galon termo adhesiva tipo piedra brillante x10 Yardas", "precio": 26232.74, "linea": "Mercerías", "subcat": "Galones", "unidad": "X rollo  /  5"}, {"cod": "1117", "desc": "Galon termoadhesivo lisa x 10 yardas", "precio": 22673.85, "linea": "Mercerías", "subcat": "Galones", "unidad": "X rollo  /  5"}, {"cod": "1118", "desc": "Galon termoadhesivo oro y plata x 10 yardas", "precio": 33297.26, "linea": "Mercerías", "subcat": "Galones", "unidad": "X rollo  /  5"}, {"cod": "1119", "desc": "Galon termoadhesivo corazon x 10 yardas", "precio": 19169.71, "linea": "Mercerías", "subcat": "Galones", "unidad": "X rollo  /  5"}, {"cod": "1122", "desc": "Galon termoadhesivo espejado x 10 yardas", "precio": 24417.99, "linea": "Mercerías", "subcat": "Galones", "unidad": "X rollo  /  5"}, {"cod": "1124", "desc": "Galon termo adhesiva con bordes x10 yardas", "precio": 23110.37, "linea": "Mercerías", "subcat": "Galones", "unidad": "X rollo  /  5"}, {"cod": "1126", "desc": "Galon termo adhesvia bisuteria x10 yardas", "precio": 28871.58, "linea": "Mercerías", "subcat": "Galones", "unidad": "X rollo  /  5"}, {"cod": "1305", "desc": "Galon termo adhesiva ''love\" x10 yardas", "precio": 36058.75, "linea": "Mercerías", "subcat": "Galones", "unidad": "X rollo  /  5"}, {"cod": "1306", "desc": "Galon termo adhesiva Brillante x10 yardas", "precio": 31551.4, "linea": "Mercerías", "subcat": "Galones", "unidad": "X rollo  /  5"}, {"cod": "1140", "desc": "Cinta Fantasia Flores media x10 yardas", "precio": 4658.57, "linea": "Mercerías", "subcat": "Cintas fantasia", "unidad": "X rollo  /  5"}, {"cod": "1142", "desc": "Cinta Fantasia Flores grandes x10 yardas", "precio": 8804.69, "linea": "Mercerías", "subcat": "Cintas fantasia", "unidad": "X rollo  /  5"}, {"cod": "1308", "desc": "Cintas Fantasia Flores mixtas x10 yardas", "precio": 5944.32, "linea": "Mercerías", "subcat": "Cintas fantasia", "unidad": "X rollo  /  5"}, {"cod": "1144", "desc": "Cinta Fantasia Corazon x10 yardas", "precio": 3726.85, "linea": "Mercerías", "subcat": "Cintas fantasia", "unidad": "X rollo  /  5"}, {"cod": "1152", "desc": "Cintas Fantasia Corazon interno x10 yardas", "precio": 6000.23, "linea": "Mercerías", "subcat": "Cintas fantasia", "unidad": "X rollo  /  5"}, {"cod": "1158", "desc": "Cinta Fantasia Diseño Encaje x10 yardas", "precio": 8884.8, "linea": "Mercerías", "subcat": "Cintas fantasia", "unidad": "X rollo  /  5"}, {"cod": "1160", "desc": "Cinta Fantasia Encaje exterior x10 yardas", "precio": 8348.15, "linea": "Mercerías", "subcat": "Cintas fantasia", "unidad": "X rollo  /  5"}, {"cod": "1895", "desc": "Cinta Fantasia Bca con lurex Borde ngro x 10 yds", "precio": 11627.14, "linea": "Mercerías", "subcat": "Cintas fantasia", "unidad": "X rollo  /  5"}, {"cod": "1896", "desc": "Cinta Fantasia Encaje x 10 yardas", "precio": 11627.14, "linea": "Mercerías", "subcat": "Cintas fantasia", "unidad": "X rollo  /  5"}, {"cod": "1897", "desc": "Cinta Fantasia sobre flores x 10 yardas", "precio": 7210.63, "linea": "Mercerías", "subcat": "Cintas fantasia", "unidad": "X rollo  /  5"}, {"cod": "1898", "desc": "Cinta Fantasia Negra con lurex x 10 yardas", "precio": 11627.14, "linea": "Mercerías", "subcat": "Cintas fantasia", "unidad": "X rollo  /  5"}, {"cod": "1899", "desc": "Cinta Fantasia Blanca con lurex x 10 yardas", "precio": 13952.57, "linea": "Mercerías", "subcat": "Cintas fantasia", "unidad": "X rollo  /  5"}, {"cod": "1903", "desc": "Cinta Fantasia Encaje y cuadritos x 10 yardas", "precio": 6129.04, "linea": "Mercerías", "subcat": "Cintas fantasia", "unidad": "X rollo  /  5"}, {"cod": "1907", "desc": "Cinta Fantasia detalles x 10 yardas", "precio": 11086.35, "linea": "Mercerías", "subcat": "Cintas fantasia", "unidad": "X rollo  /  5"}, {"cod": "1916", "desc": "Cinta Fantasia peludita x 10 yardas", "precio": 9373.82, "linea": "Mercerías", "subcat": "Cintas fantasia", "unidad": "X rollo  /  5"}, {"cod": "1920", "desc": "Cinta Fantasia estrellas x 10 yardas", "precio": 11086.35, "linea": "Mercerías", "subcat": "Cintas fantasia", "unidad": "X rollo  /  5"}, {"cod": "M006", "desc": "HILO RUSTICO DE ALGODÓN EXTRA GRUESO 27 H", "precio": 11019.45, "linea": "Manualidades", "subcat": "", "unidad": "X KILO"}, {"cod": "M007", "desc": "SPESSO/HILO ECO EXTRA GR 27 H CRUDO", "precio": 6095.86, "linea": "Manualidades", "subcat": "", "unidad": "X OVILLO"}, {"cod": "M008", "desc": "SPESSO/HILO ECO EXTRA GR 27 H COLOR", "precio": 7969.21, "linea": "Manualidades", "subcat": "", "unidad": "X OVILLO"}, {"cod": "M009", "desc": "HILO RUSTICO FINO 8/4 ECO/EXTRA SUAVE", "precio": 2556.25, "linea": "Manualidades", "subcat": "", "unidad": "X OVILLO"}, {"cod": "M010", "desc": "HILO RUSTICO MEDIO 8/8 ECO/EXTRA SUAVE", "precio": 16615.28, "linea": "Manualidades", "subcat": "", "unidad": "X KILO"}, {"cod": "M011", "desc": "HILO RUSTICO GRUESO 8/12 ECO/EXTRA SUAVE", "precio": 16615.28, "linea": "Manualidades", "subcat": "", "unidad": "X KILO"}, {"cod": "M012", "desc": "ECOMALHA ( simil totora) 140 MTS", "precio": 8255.45, "linea": "Manualidades", "subcat": "", "unidad": "X OVILLO"}, {"cod": "M013", "desc": "ECOMALHA ( simil totora) 80 MTS", "precio": 5354.21, "linea": "Manualidades", "subcat": "", "unidad": "X OVILLO"}, {"cod": "M014", "desc": "ECOMALHA ( simil totora) 30 MTS", "precio": 2091.49, "linea": "Manualidades", "subcat": "", "unidad": "X OVILLO"}, {"cod": "M015", "desc": "ECO FANTASIA 460 (TRENTO)", "precio": 7036.19, "linea": "Manualidades", "subcat": "", "unidad": "X OVILLO"}, {"cod": "M016", "desc": "JUTA/hilo nat de yute", "precio": 4676.71, "linea": "Manualidades", "subcat": "", "unidad": "X OVILLO"}, {"cod": "M017", "desc": "ECOJUTA/hilo eco bicolor", "precio": 8464.48, "linea": "Manualidades", "subcat": "", "unidad": "X OVILLO"}];
+const IVA = 0.21;
+
+const state = {
+  user: null,      // { nombre, categoria, descuento }
+  isAdmin: false,
+  lineaFilter: 'TODAS',
+  onlyPedido: false,
+  cantidades: {},
+};
+
+const fmt = n => new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}).format(n);
+function showToast(msg) {
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2400);
+}
+
+// ── LOGIN ───────────────────────────────────────────────────────────────────
+async function doLogin() {
+  const nombre = document.getElementById('login-user').value.trim();
+  const pwd    = document.getElementById('login-pwd').value.trim();
+  if (!nombre||!pwd) return;
+
+  const btn = document.getElementById('login-btn');
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span>Verificando...';
+  document.getElementById('login-error').textContent='';
+
+  const {data,error} = await sb.from('clientes')
+    .select('*').eq('nombre',nombre).eq('password',pwd).eq('activo',true).single();
+
+  btn.disabled=false; btn.textContent='Ingresar';
+
+  if (error||!data) {
+    const inp=document.getElementById('login-user');
+    inp.classList.add('error');
+    document.getElementById('login-pwd').classList.add('error');
+    document.getElementById('login-error').textContent='Usuario o contraseña incorrectos';
+    setTimeout(()=>{inp.classList.remove('error');document.getElementById('login-pwd').classList.remove('error');},600);
+    return;
+  }
+
+  state.user = data;
+  state.isAdmin = data.nombre === 'admin';
+  sessionStorage.setItem('bv_user', JSON.stringify(data));
+  iniciarSesion();
+}
+
+function iniciarSesion() {
+  const u = state.user;
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('main-header').style.display='flex';
+  document.getElementById('header-username').textContent = u.nombre;
+
+  if (state.isAdmin) {
+    document.querySelectorAll('.admin-only').forEach(el=>el.style.display='');
+  }
+
+  // Cargar vista pedido
+  renderPedido();
+  showView('pedido', document.querySelector('.tab-btn'));
+
+  if (state.isAdmin) loadAdmin();
+}
+
+function doLogout() {
+  sessionStorage.removeItem('bv_user');
+  state.user=null; state.isAdmin=false; state.cantidades={};
+  document.getElementById('main-header').style.display='none';
+  document.getElementById('view-pedido').style.display='none';
+  document.getElementById('view-admin').style.display='none';
+  document.getElementById('login-screen').classList.remove('hidden');
+  document.getElementById('login-user').value='';
+  document.getElementById('login-pwd').value='';
+  document.querySelectorAll('.admin-only').forEach(el=>el.style.display='none');
+}
+
+// ── VIEWS ───────────────────────────────────────────────────────────────────
+function showView(name, btn) {
+  document.querySelectorAll('.view').forEach(v=>v.style.display='none');
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('view-'+name).style.display='block';
+  if(btn) btn.classList.add('active');
+  if(name==='admin') loadAdmin();
+}
+
+// ── PEDIDO ──────────────────────────────────────────────────────────────────
+function renderPedido() {
+  const u = state.user;
+  document.getElementById('ci-name').textContent = u.nombre;
+  document.getElementById('ci-cat').textContent = u.categoria;
+  const iva = document.getElementById('ci-iva');
+  if (u.categoria==='A') {
+    iva.className='iva-badge con-iva'; iva.textContent='+ IVA 21% sobre el total';
+  } else {
+    iva.className='iva-badge sin-iva'; iva.textContent='Sin IVA — precio final';
+  }
+  renderProds();
+}
+
+function renderProds() {
+  const disc = state.user ? state.user.descuento/100 : 0;
+  const codes={'Doméstico':'DOM','Mercerías':'MER','Manualidades':'MAN'};
+  document.getElementById('prods-body').innerHTML = PRODUCTOS.map((p,i)=>{
+    const qty = state.cantidades[i]||'';
+    const tag = codes[p.linea]||'---';
+    const discEfectivo = p.linea==='Manualidades' ? 0 : disc;
+    const pc = p.precio*(1-discEfectivo);
+    return `<tr id="row-${i}" data-linea="${p.linea}">
+      <td><span class="linea-tag tag-${tag}">${tag}</span></td>
+      <td style="max-width:280px">${p.desc}</td>
+      <td class="pl ${disc>0&&p.linea!=='Manualidades'?'':'nd'}" id="pl-${i}">${fmt(p.precio)}</td>
+      <td class="pc" id="pc-${i}">${fmt(pc)}</td>
+      <td style="text-align:center">
+        <input type="number" class="qty-i ${qty?'hv':''}" min="0" id="qty-${i}"
+          value="${qty}" oninput="updateQty(${i},this.value)">
+      </td>
+      <td class="lt" id="lt-${i}">${qty?fmt(pc*qty):'—'}</td>
+    </tr>`;
+  }).join('');
+  applyFilters();
+  updateTotal();
+}
+
+function updateQty(i,val) {
+  const qty=parseFloat(val)||0;
+  if(qty>0) state.cantidades[i]=qty; else delete state.cantidades[i];
+  const inp=document.getElementById(`qty-${i}`);
+  const lt=document.getElementById(`lt-${i}`);
+  inp.classList.toggle('hv',qty>0);
+  const disc=(state.user?.descuento||0)/100;
+  const discEfectivo=PRODUCTOS[i].linea==='Manualidades'?0:disc;
+  const pc=PRODUCTOS[i].precio*(1-discEfectivo);
+  if(lt) lt.textContent=qty>0?fmt(pc*qty):'—';
+  if(state.onlyPedido) applyFilters();
+  updateTotal();
+}
+
+function updateTotal() {
+  const disc=(state.user?.descuento||0)/100;
+  const cat=state.user?.categoria;
+  let sub=0;
+  PRODUCTOS.forEach((p,i)=>{
+    const qty=state.cantidades[i]||0;
+    const discEfectivo=p.linea==='Manualidades'?0:disc;
+    sub+=p.precio*(1-discEfectivo)*qty;
+  });
+  const aplicaIva=cat==='A';
+  const iva=aplicaIva?sub*IVA:0;
+  const total=sub+iva;
+  document.getElementById('t-sub').textContent=fmt(sub);
+  document.getElementById('t-iva').textContent=fmt(iva);
+  document.getElementById('t-total').textContent=fmt(total);
+  document.getElementById('t-iva-row').style.display=aplicaIva?'flex':'none';
+  document.getElementById('t-label').textContent=aplicaIva?'TOTAL + IVA':'TOTAL';
+}
+
+function setLinea(linea,btn) {
+  state.lineaFilter=linea;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  applyFilters();
+}
+
+function toggleOnly() {
+  state.onlyPedido=!state.onlyPedido;
+  document.getElementById('only-btn').classList.toggle('active',state.onlyPedido);
+  applyFilters();
+}
+
+function applyFilters() {
+  PRODUCTOS.forEach((p,i)=>{
+    const row=document.getElementById(`row-${i}`);
+    if(!row) return;
+    const lineaOk=state.lineaFilter==='TODAS'||p.linea===state.lineaFilter;
+    const pedidoOk=!state.onlyPedido||(state.cantidades[i]>0);
+    row.classList.toggle('hidden',!(lineaOk&&pedidoOk));
+  });
+}
+
+function clearPedido() {
+  state.cantidades={};
+  document.querySelectorAll('.qty-i').forEach(i=>{i.value='';i.classList.remove('hv');});
+  document.querySelectorAll('.lt').forEach(l=>l.textContent='—');
+  document.getElementById('pedido-nota').value='';
+  if(state.onlyPedido) applyFilters();
+  updateTotal();
+  showToast('Pedido limpiado ✓');
+}
+
+// ── CONFIRMAR PEDIDO ─────────────────────────────────────────────────────────
+async function confirmarPedido() {
+  const items=[];
+  const disc=(state.user?.descuento||0)/100;
+  let sub=0;
+  PRODUCTOS.forEach((p,i)=>{
+    const qty=state.cantidades[i];
+    if(!qty) return;
+    const discEfectivo=p.linea==='Manualidades'?0:disc;
+    const pc=p.precio*(1-discEfectivo);
+    items.push({linea:p.linea,desc:p.desc,cantidad:qty,precio:pc,total:pc*qty});
+    sub+=pc*qty;
+  });
+  if(!items.length) { showToast('No hay productos en el pedido'); return; }
+  const cat=state.user?.categoria;
+  const iva=cat==='A'?sub*IVA:0;
+  const total=sub+iva;
+  const nota=document.getElementById('pedido-nota').value.trim();
+
+  const btn=document.getElementById('confirm-btn');
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span>Enviando...';
+
+  const {error} = await sb.from('pedidos').insert({
+    cliente_nombre:state.user.nombre, items, subtotal:sub, iva, total,
+    estado:'pendiente', nota
+  });
+
+  btn.disabled=false; btn.textContent='✓ Confirmar pedido';
+
+  if(error) { showToast('Error al enviar. Intentá de nuevo.'); return; }
+  showToast('¡Pedido enviado! 🎉');
+  clearPedido();
+}
+
+// ── ENVIAR WA ────────────────────────────────────────────────────────────────
+function enviarWA() {
+  const disc=(state.user?.descuento||0)/100;
+  const cat=state.user?.categoria;
+  const items=[]; let sub=0;
+  PRODUCTOS.forEach((p,i)=>{
+    const qty=state.cantidades[i]; if(!qty) return;
+    const discEfectivo=p.linea==='Manualidades'?0:disc;
+    const pc=p.precio*(1-discEfectivo);
+    items.push(`${p.desc} x${qty} → ${fmt(pc*qty)}`);
+    sub+=pc*qty;
+  });
+  if(!items.length) { showToast('No hay productos en el pedido'); return; }
+  const iva=cat==='A'?sub*IVA:0;
+  const total=sub+iva;
+  const nota=document.getElementById('pedido-nota').value.trim();
+  const fecha=new Date().toLocaleDateString('es-AR');
+  let msg=`*PEDIDO BILEVICH*\n*Cliente:* ${state.user.nombre}\n*Fecha:* ${fecha}\n\n`;
+  msg+=items.join('\n');
+  msg+=`\n\n*Subtotal:* ${fmt(sub)}`;
+  if(iva>0) msg+=`\n*IVA 21%:* ${fmt(iva)}`;
+  msg+=`\n*TOTAL:* ${fmt(total)}`;
+  if(nota) msg+=`\n\n*Nota:* ${nota}`;
+  window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
+}
+
+// ── EXPORT PDF ───────────────────────────────────────────────────────────────
+function exportPDF() {
+  if(!Object.keys(state.cantidades).length) { showToast('No hay productos'); return; }
+  const fecha=new Date().toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'});
+  document.getElementById('pdf-client-name').textContent=state.user?.nombre||'';
+  document.getElementById('pdf-date').textContent='Fecha: '+fecha;
+  const was=state.onlyPedido;
+  if(!was){ state.onlyPedido=true; applyFilters(); }
+  const prev=document.title;
+  document.title='Pedido '+fecha;
+  setTimeout(()=>{
+    window.print();
+    document.title=prev;
+    if(!was){ state.onlyPedido=false; applyFilters(); }
+  },150);
+}
+
+// ── ADMIN ────────────────────────────────────────────────────────────────────
+async function loadAdmin() {
+  // Cargar clientes
+  const {data:clis} = await sb.from('clientes').select('*').order('nombre');
+  if(clis) renderAdminClientes(clis);
+
+  // Cargar pedidos
+  const {data:peds} = await sb.from('pedidos').select('*').order('created_at',{ascending:false}).limit(50);
+  if(peds) renderAdminPedidos(peds);
+}
+
+function renderAdminClientes(clis) {
+  const body=document.getElementById('admin-clientes-body');
+  body.innerHTML=clis.filter(c=>c.nombre!=='admin').map(c=>`
+    <tr>
+      <td style="font-weight:600">${c.nombre}</td>
+      <td><span class="cat-badge cat-${c.categoria}">${c.categoria}</span></td>
+      <td>
+        <input type="number" class="at-input" min="0" max="100" value="${c.descuento}"
+          data-id="${c.id}" data-nombre="${c.nombre.replace(/"/g,'&quot;')}"
+          onchange="saveDescuento(this)"> %
+      </td>
+      <td>
+        <input type="text" class="pwd-input" value="${c.password}"
+          data-id="${c.id}" onchange="savePwd(this)">
+      </td>
+      <td>
+        <button class="save-btn" style="background:#991B1B" onclick="toggleActivo('${c.id}',${c.activo})">
+          ${c.activo?'Desactivar':'Activar'}
+        </button>
+      </td>
+    </tr>`).join('');
+}
+
+async function saveDescuento(inp) {
+  const val=Math.min(Math.max(parseFloat(inp.value)||0,0),100);
+  const {error} = await sb.from('clientes').update({descuento:val}).eq('id',inp.dataset.id);
+  if(!error) { inp.classList.add('saved'); setTimeout(()=>inp.classList.remove('saved'),1500); showToast('Descuento guardado ✓'); }
+}
+
+async function savePwd(inp) {
+  const {error} = await sb.from('clientes').update({password:inp.value}).eq('id',inp.dataset.id);
+  if(!error) { inp.style.borderColor='var(--green)'; setTimeout(()=>inp.style.borderColor='',1500); showToast('Contraseña actualizada ✓'); }
+}
+
+async function toggleActivo(id, activo) {
+  await sb.from('clientes').update({activo:!activo}).eq('id',id);
+  loadAdmin();
+}
+
+function toggleNewClientForm() {
+  const f=document.getElementById('new-client-form');
+  f.style.display=f.style.display==='none'?'grid':'none';
+}
+
+async function crearCliente() {
+  const nombre=document.getElementById('nc-nombre').value.trim();
+  const pwd=document.getElementById('nc-pwd').value.trim();
+  const desc=parseFloat(document.getElementById('nc-desc').value)||0;
+  const cat=document.getElementById('nc-cat').value;
+  if(!nombre||!pwd) { showToast('Completá nombre y contraseña'); return; }
+  const {error} = await sb.from('clientes').insert({nombre,password:pwd,descuento:desc,categoria:cat});
+  if(error) { showToast('Error: '+error.message); return; }
+  showToast(`Cliente ${nombre} creado ✓`);
+  document.getElementById('nc-nombre').value='';
+  document.getElementById('nc-pwd').value='';
+  document.getElementById('nc-desc').value='';
+  loadAdmin();
+}
+
+function renderAdminPedidos(peds) {
+  const body=document.getElementById('admin-pedidos-body');
+  document.getElementById('pedidos-count').textContent=peds.length+' pedidos';
+  if(!peds.length) { body.innerHTML='<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px">No hay pedidos aún</div>'; return; }
+  body.innerHTML=peds.map(p=>{
+    const fecha=new Date(p.created_at).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});
+    const items=Array.isArray(p.items)?p.items:[];
+    const resumen=items.slice(0,2).map(it=>`${it.desc?.slice(0,25)||'?'} x${it.cantidad}`).join(', ')+(items.length>2?'...':'');
+    return `<div class="pedido-card" onclick="togglePedidoDetalle('${p.id}')">
+      <div class="pc-top">
+        <span class="pc-nombre">${p.cliente_nombre}</span>
+        <span class="pc-total">${fmt(p.total)}</span>
+      </div>
+      <div class="pc-meta" style="display:flex;justify-content:space-between;align-items:center">
+        <span>${fecha}</span>
+        <select class="at-input" style="width:110px;padding:2px 6px" onchange="cambiarEstado('${p.id}',this.value)" onclick="event.stopPropagation()">
+          <option value="pendiente" ${p.estado==='pendiente'?'selected':''}>Pendiente</option>
+          <option value="confirmado" ${p.estado==='confirmado'?'selected':''}>Confirmado</option>
+          <option value="cancelado" ${p.estado==='cancelado'?'selected':''}>Cancelado</option>
+        </select>
+      </div>
+      <div id="ped-det-${p.id}" style="display:none;margin-top:8px;font-size:11px;color:var(--muted)">
+        ${items.map(it=>`<div>• ${it.desc} x${it.cantidad} → ${fmt(it.total)}</div>`).join('')}
+        ${p.nota?`<div style="margin-top:4px;color:var(--navy)"><strong>Nota:</strong> ${p.nota}</div>`:''}
+        <div style="margin-top:4px"><strong>Total:</strong> ${fmt(p.total)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function togglePedidoDetalle(id) {
+  const el=document.getElementById('ped-det-'+id);
+  if(el) el.style.display=el.style.display==='none'?'block':'none';
+}
+
+async function cambiarEstado(id,estado) {
+  await sb.from('pedidos').update({estado}).eq('id',id);
+  showToast('Estado actualizado ✓');
+}
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+const saved=sessionStorage.getItem('bv_user');
+if(saved) {
+  state.user=JSON.parse(saved);
+  state.isAdmin=state.user.nombre==='admin';
+  iniciarSesion();
+} else {
+  document.getElementById('login-user').focus();
+}
+</script>
+</body>
+</html>
