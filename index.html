@@ -282,7 +282,7 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);min-he
             <thead>
               <tr>
                 <th>Línea</th><th>Descripción</th>
-                <th class="r">Precio lista</th><th class="r">Tu precio</th>
+                <th class="r">Precio</th>
                 <th class="c">Cant.</th><th class="r">Total</th>
               </tr>
             </thead>
@@ -388,6 +388,33 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);min-he
   </div>
 </div>
 <div class="toast" id="toast"></div>
+
+<!-- Modal éxito post-confirmación -->
+<div id="success-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9991;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:16px;width:100%;max-width:420px;overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,.3);text-align:center">
+    <div style="background:#1B2A4A;padding:20px 20px 16px">
+      <div style="font-size:36px;margin-bottom:6px">🎉</div>
+      <div style="font-size:15px;font-weight:800;color:#fff">¡Pedido confirmado!</div>
+      <div style="font-size:12px;color:rgba(255,255,255,.6);margin-top:4px">Tu pedido fue enviado correctamente</div>
+    </div>
+    <div style="padding:20px 24px">
+      <div style="font-size:13px;color:#555;margin-bottom:20px">
+        Podés descargar el resumen en PDF o enviarlo directamente por WhatsApp.
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button onclick="exportPDFyWhatsApp()" style="padding:12px 20px;border-radius:8px;border:none;background:#25D366;color:#fff;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
+          📲 Enviar por WhatsApp
+        </button>
+        <button onclick="exportPDF()" style="padding:12px 20px;border-radius:8px;border:1.5px solid #1B2A4A;background:transparent;color:#1B2A4A;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer">
+          📄 Descargar PDF
+        </button>
+        <button onclick="cerrarSuccessModal()" style="padding:10px;border:none;background:transparent;color:#999;font-family:'Syne',sans-serif;font-size:12px;cursor:pointer">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script>
 const SUPABASE_URL = "https://mqhmkeilhkkvxbhbjpma.supabase.co";
@@ -504,7 +531,6 @@ function renderProds() {
     return `<tr id="row-${i}" data-linea="${p.linea}">
       <td><span class="linea-tag tag-${tag}">${tag}</span></td>
       <td style="max-width:280px">${p.desc}</td>
-      <td class="pl ${disc>0&&p.linea!=='Manualidades'?'':'nd'}" id="pl-${i}">${fmt(p.precio)}</td>
       <td class="pc" id="pc-${i}">${fmt(pc)}</td>
       <td style="text-align:center">
         <input type="number" class="qty-i ${qty?'hv':''}" min="0" id="qty-${i}"
@@ -670,8 +696,20 @@ async function enviarPedidoConfirmado() {
 
   document.getElementById('confirm-modal').style.display='none';
   pedidoPendiente=null;
-  showToast('¡Pedido confirmado y enviado! 🎉');
   clearPedido();
+  // Mostrar modal de éxito
+  document.getElementById('success-modal').style.display='flex';
+}
+
+function cerrarSuccessModal() {
+  document.getElementById('success-modal').style.display='none';
+}
+
+function exportPDFyWhatsApp() {
+  cerrarSuccessModal();
+  // Primero genera el texto WA, luego abre el PDF
+  enviarWA();
+  setTimeout(()=>exportPDF(), 600);
 }
 
 // ── ENVIAR WA ────────────────────────────────────────────────────────────────
